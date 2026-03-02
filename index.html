@@ -9,6 +9,9 @@
 
   <!-- Teachable Machine Image (ตัวที่แน่นอนว่าใช้ได้) -->
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
+  
+  <!-- MQTT -->
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 </head>
 
 <body>
@@ -18,10 +21,24 @@
   <div id="webcam-container"></div>
   <div id="label-container"></div>
 
+  <!-- 👉 วาง script ตรงนี้ -->
   <script>
+    /* ===============================
+       1) Teachable Machine config
+    ================================ */
     const URL = "https://teachablemachine.withgoogle.com/models/_kpwLakFR/";
 
     let model, webcam, labelContainer, maxPredictions;
+
+    /* ===============================
+       2) MQTT CONFIG
+    ================================ */
+    const mqttClient = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
+    const MQTT_TOPIC = "jksocool/color";
+
+    mqttClient.on("connect", () => {
+      console.log("✅ MQTT Connected");
+    });
 
     async function init() {
       const modelURL = URL + "model.json";
@@ -31,7 +48,7 @@
       maxPredictions = model.getTotalClasses();
 
       webcam = new tmImage.Webcam(200, 200, true);
-      await webcam.setup(); // << จุดนี้จะถามสิทธิ์กล้อง
+      await webcam.setup();
       await webcam.play();
       window.requestAnimationFrame(loop);
 
@@ -51,11 +68,25 @@
 
     async function predict() {
       const prediction = await model.predict(webcam.canvas);
+
+      let detectedColor = "none";
+      let maxProb = 0;
+
       for (let i = 0; i < maxPredictions; i++) {
+        const prob = prediction[i].probability;
         labelContainer.childNodes[i].innerHTML =
-          prediction[i].className + ": " + prediction[i].probability.toFixed(2);
+          prediction[i].className + ": " + prob.toFixed(2);
+
+        if (prob > maxProb) {
+          maxProb = prob;
+          detectedColor = prediction[i].className;
+        }
+      }
+
+      if (maxProb > 0.8) {
+        mqttClient.publish(MQTT_TOPIC, detectedColor);
+        console.log("📤 Send MQTT:", detectedColor);
       }
     }
   </script>
 </body>
-</html>
