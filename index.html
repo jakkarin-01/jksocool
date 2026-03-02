@@ -23,70 +23,89 @@
 
   <!-- 👉 วาง script ตรงนี้ -->
   <script>
-    /* ===============================
-       1) Teachable Machine config
-    ================================ */
-    const URL = "https://teachablemachine.withgoogle.com/models/_kpwLakFR/";
+/* ===============================
+   1) Teachable Machine config
+================================ */
+const URL = "https://teachablemachine.withgoogle.com/models/_kpwLakFR/";
 
-    let model, webcam, labelContainer, maxPredictions;
+let model, webcam, labelContainer, maxPredictions;
 
-    /* ===============================
-       2) MQTT CONFIG
-    ================================ */
-    const mqttClient = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
-    const MQTT_TOPIC = "jksocool/color";
+/* ===============================
+   2) MQTT CONFIG
+================================ */
+const mqttClient = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
+const MQTT_TOPIC = "jksocool/color";
 
-    mqttClient.on("connect", () => {
-      console.log("✅ MQTT Connected");
-    });
+mqttClient.on("connect", () => {
+  console.log("✅ MQTT Connected");
+});
 
-    async function init() {
-      const modelURL = URL + "model.json";
-      const metadataURL = URL + "metadata.json";
+/* ===============================
+   3) TIMER CONFIG (2 วินาที)
+================================ */
+let lastSendTime = 0;
+const SEND_INTERVAL = 2000; // 2 วินาที
 
-      model = await tmImage.load(modelURL, metadataURL);
-      maxPredictions = model.getTotalClasses();
+/* ===============================
+   4) INIT
+================================ */
+async function init() {
+  const modelURL = URL + "model.json";
+  const metadataURL = URL + "metadata.json";
 
-      webcam = new tmImage.Webcam(200, 200, true);
-      await webcam.setup();
-      await webcam.play();
-      window.requestAnimationFrame(loop);
+  model = await tmImage.load(modelURL, metadataURL);
+  maxPredictions = model.getTotalClasses();
 
-      document.getElementById("webcam-container").appendChild(webcam.canvas);
-      labelContainer = document.getElementById("label-container");
+  webcam = new tmImage.Webcam(200, 200, true);
+  await webcam.setup();
+  await webcam.play();
+  window.requestAnimationFrame(loop);
 
-      for (let i = 0; i < maxPredictions; i++) {
-        labelContainer.appendChild(document.createElement("div"));
-      }
+  document.getElementById("webcam-container").appendChild(webcam.canvas);
+  labelContainer = document.getElementById("label-container");
+
+  for (let i = 0; i < maxPredictions; i++) {
+    labelContainer.appendChild(document.createElement("div"));
+  }
+}
+
+/* ===============================
+   5) LOOP
+================================ */
+async function loop() {
+  webcam.update();
+  await predict();
+  window.requestAnimationFrame(loop);
+}
+
+/* ===============================
+   6) PREDICT + SEND MQTT (2 วิ/ครั้ง)
+================================ */
+async function predict() {
+  const prediction = await model.predict(webcam.canvas);
+
+  let detectedColor = "none";
+  let maxProb = 0;
+
+  for (let i = 0; i < maxPredictions; i++) {
+    const prob = prediction[i].probability;
+    labelContainer.childNodes[i].innerHTML =
+      prediction[i].className + ": " + prob.toFixed(2);
+
+    if (prob > maxProb) {
+      maxProb = prob;
+      detectedColor = prediction[i].className;
     }
+  }
 
-    async function loop() {
-      webcam.update();
-      await predict();
-      window.requestAnimationFrame(loop);
-    }
+  const now = Date.now();
 
-    async function predict() {
-      const prediction = await model.predict(webcam.canvas);
+  // ส่ง MQTT ทุก 2 วินาที และต้องมั่นใจเกิน 80%
+  if (maxProb > 0.8 && now - lastSendTime >= SEND_INTERVAL) {
+    mqttClient.publish(MQTT_TOPIC, detectedColor);
+    console.log("📤 Send MQTT:", detectedColor);
 
-      let detectedColor = "none";
-      let maxProb = 0;
-
-      for (let i = 0; i < maxPredictions; i++) {
-        const prob = prediction[i].probability;
-        labelContainer.childNodes[i].innerHTML =
-          prediction[i].className + ": " + prob.toFixed(2);
-
-        if (prob > maxProb) {
-          maxProb = prob;
-          detectedColor = prediction[i].className;
-        }
-      }
-
-      if (maxProb > 0.8) {
-        mqttClient.publish(MQTT_TOPIC, detectedColor);
-        console.log("📤 Send MQTT:", detectedColor);
-      }
-    }
-  </script>
-</body>
+    lastSendTime = now;
+  }
+}
+</script>
