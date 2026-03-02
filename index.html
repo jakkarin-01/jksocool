@@ -1,61 +1,61 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
   <meta charset="UTF-8">
   <title>Color Detection</title>
+
+  <!-- TensorFlow -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+
+  <!-- Teachable Machine Image -->
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest"></script>
-  <style>
-    body { font-family: Arial; text-align: center; }
-    video, canvas { width: 300px; }
-  </style>
 </head>
+
 <body>
+  <h2>Teachable Machine - Color Detection</h2>
+  <button onclick="init()">Start Camera</button>
 
-<h2>Teachable Machine - Color Detection</h2>
-<button onclick="init()">Start Camera</button>
-<div id="webcam-container"></div>
-<div id="label-container"></div>
+  <div id="webcam-container"></div>
+  <div id="label-container"></div>
 
-<script>
-  const MODEL_URL = "https://teachablemachine.withgoogle.com/models/_kpwLakFR/";
+  <script>
+    const URL = "https://teachablemachine.withgoogle.com/models/_kpwLakFR/";
 
-  let model, webcam, labelContainer, maxPredictions;
+    let model, webcam, labelContainer, maxPredictions;
 
-  async function init() {
-    const modelURL = MODEL_URL + "model.json";
-    const metadataURL = MODEL_URL + "metadata.json";
+    async function init() {
+      const modelURL = URL + "model.json";
+      const metadataURL = URL + "metadata.json";
 
-    model = await tmImage.load(modelURL, metadataURL);
-    maxPredictions = model.getTotalClasses();
+      model = await tmImage.load(modelURL, metadataURL);
+      maxPredictions = model.getTotalClasses();
 
-    webcam = new tmImage.Webcam(300, 300, true);
-    await webcam.setup();
-    await webcam.play();
-    window.requestAnimationFrame(loop);
+      webcam = new tmImage.Webcam(200, 200, true);
+      await webcam.setup(); // << จุดนี้จะถามสิทธิ์กล้อง
+      await webcam.play();
+      window.requestAnimationFrame(loop);
 
-    document.getElementById("webcam-container").appendChild(webcam.canvas);
-    labelContainer = document.getElementById("label-container");
-    for (let i = 0; i < maxPredictions; i++) {
-      labelContainer.appendChild(document.createElement("div"));
+      document.getElementById("webcam-container").appendChild(webcam.canvas);
+      labelContainer = document.getElementById("label-container");
+
+      for (let i = 0; i < maxPredictions; i++) {
+        labelContainer.appendChild(document.createElement("div"));
+      }
     }
-  }
 
-  async function loop() {
-    webcam.update();
-    await predict();
-    window.requestAnimationFrame(loop);
-  }
-
-  async function predict() {
-    const prediction = await model.predict(webcam.canvas);
-    for (let i = 0; i < maxPredictions; i++) {
-      const classPrediction =
-        prediction[i].className + ": " + prediction[i].probability.toFixed(2);
-      labelContainer.childNodes[i].innerHTML = classPrediction;
+    async function loop() {
+      webcam.update();
+      await predict();
+      window.requestAnimationFrame(loop);
     }
-  }
-</script>
 
+    async function predict() {
+      const prediction = await model.predict(webcam.canvas);
+      for (let i = 0; i < maxPredictions; i++) {
+        labelContainer.childNodes[i].innerHTML =
+          prediction[i].className + ": " + prediction[i].probability.toFixed(2);
+      }
+    }
+  </script>
 </body>
 </html>
