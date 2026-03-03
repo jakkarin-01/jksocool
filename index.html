@@ -44,7 +44,7 @@ mqttClient.on("connect", () => {
    3) TIMER CONFIG (2 วินาที)
 ================================ */
 let lastSendTime = 0;
-const SEND_INTERVAL = 2000; // 2 วินาที
+const SEND_INTERVAL = 5000; // 2 วินาที
 
 /* ===============================
    4) INIT
@@ -100,8 +100,8 @@ async function predict() {
 
   const now = Date.now();
 
-  // ส่ง MQTT ทุก 2 วินาที และต้องมั่นใจเกิน 80%
-  if (maxProb > 0.8 && now - lastSendTime >= SEND_INTERVAL) {
+  // ส่ง MQTT ทุก 2 วินาที และต้องมั่นใจ100
+  if (maxProb = 1 && now - lastSendTime >= SEND_INTERVAL) {
     mqttClient.publish(MQTT_TOPIC, detectedColor);
     console.log("📤 Send MQTT:", detectedColor);
 
